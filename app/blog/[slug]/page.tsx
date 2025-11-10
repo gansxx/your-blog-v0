@@ -4,250 +4,23 @@ import { Card } from "@/components/ui/card"
 import { ArrowLeft, Calendar, Clock } from "lucide-react"
 import Link from "next/link"
 import ParticleBackground from "@/components/particles"
-import type { JSX } from "react"
+import { getPostBySlug, getAllPostSlugs } from "@/lib/markdown"
+import { notFound } from "next/navigation"
 
-const articles: Record<
-  string,
-  {
-    title: string
-    date: string
-    readTime: string
-    category: string
-    content: string
-  }
-> = {
-  "building-scalable-web-applications": {
-    title: "Building Scalable Web Applications with Next.js",
-    date: "Mar 15, 2024",
-    readTime: "8 min read",
-    category: "Development",
-    content: `
-# Building Scalable Web Applications with Next.js
-
-Next.js has become the go-to framework for building modern web applications. In this comprehensive guide, we'll explore the key patterns and best practices that will help you build production-ready, scalable applications.
-
-## Why Next.js?
-
-Next.js combines the best of server-side rendering, static site generation, and client-side rendering into one powerful framework. With features like:
-
-- **Automatic code splitting** for optimal performance
-- **Built-in optimization** for images, fonts, and third-party scripts
-- **API routes** for backend functionality
-- **File-based routing** for intuitive navigation
-
-## Key Architecture Patterns
-
-### 1. Server Components First
-
-With Next.js 13+ and the App Router, server components are now the default. This paradigm shift allows us to:
-
-- Fetch data directly in components
-- Reduce client-side JavaScript bundle size
-- Improve initial page load performance
-
-\`\`\`tsx
-// app/posts/page.tsx
-async function Posts() {
-  const posts = await fetch('https://api.example.com/posts')
-  return <PostList posts={posts} />
-}
-\`\`\`
-
-### 2. Smart Data Fetching
-
-Leverage Next.js caching strategies for optimal performance:
-
-- **Static Generation** for content that doesn't change often
-- **Incremental Static Regeneration** for periodically updated content
-- **Dynamic Rendering** for personalized content
-
-### 3. Modular Component Architecture
-
-Break down your application into small, reusable components. This makes your codebase:
-
-- Easier to test
-- Simpler to maintain
-- More scalable as your team grows
-
-## Performance Optimization
-
-Performance is crucial for user experience and SEO. Here are essential optimizations:
-
-### Image Optimization
-
-Always use Next.js Image component for automatic optimization:
-
-\`\`\`tsx
-import Image from 'next/image'
-
-<Image
-  src="/hero.jpg"
-  width={1200}
-  height={600}
-  alt="Hero image"
-  priority
-/>
-\`\`\`
-
-### Code Splitting
-
-Next.js automatically splits your code by route, but you can also use dynamic imports for heavy components:
-
-\`\`\`tsx
-import dynamic from 'next/dynamic'
-
-const HeavyComponent = dynamic(() => import('./HeavyComponent'), {
-  loading: () => <p>Loading...</p>
-})
-\`\`\`
-
-## State Management
-
-For scalable applications, choose the right state management solution:
-
-- **Server State**: Use React Query or SWR
-- **Client State**: Context API for simple cases, Zustand or Redux for complex apps
-- **URL State**: Use searchParams for shareable state
-
-## Testing Strategy
-
-A solid testing strategy ensures your application remains reliable:
-
-1. **Unit Tests**: Test individual functions and components
-2. **Integration Tests**: Test how components work together
-3. **E2E Tests**: Use Playwright to test critical user flows
-
-## Deployment Best Practices
-
-When deploying your Next.js application:
-
-- Use environment variables for configuration
-- Implement proper error boundaries
-- Set up monitoring and analytics
-- Use a CDN for static assets
-- Enable compression and caching headers
-
-## Conclusion
-
-Building scalable web applications with Next.js requires thoughtful architecture, performance optimization, and solid development practices. By following these patterns, you'll create applications that can grow with your needs while maintaining excellent performance and developer experience.
-
-Remember: start simple, measure performance, and optimize based on real data. Happy coding!
-    `,
-  },
+// Generate static paths for all blog posts
+export async function generateStaticParams() {
+  const slugs = getAllPostSlugs()
+  return slugs.map((slug) => ({
+    slug,
+  }))
 }
 
 export default async function BlogPost({ params }: { params: { slug: string } }) {
   const { slug } = params
-  const article = articles[slug]
+  const article = await getPostBySlug(slug)
 
   if (!article) {
-    return <div>Article not found</div>
-  }
-
-  // Simple markdown-to-HTML converter for demonstration
-  const renderMarkdown = (md: string) => {
-    const lines = md.trim().split("\n")
-    const elements: JSX.Element[] = []
-    let currentList: string[] = []
-    let codeBlock: string[] = []
-    let inCodeBlock = false
-    let codeLanguage = ""
-
-    const flushList = () => {
-      if (currentList.length > 0) {
-        elements.push(
-          <ul key={elements.length} className="list-disc list-inside mb-6 text-muted-foreground space-y-2">
-            {currentList.map((item, i) => (
-              <li key={i} dangerouslySetInnerHTML={{ __html: item }} />
-            ))}
-          </ul>,
-        )
-        currentList = []
-      }
-    }
-
-    const flushCodeBlock = () => {
-      if (codeBlock.length > 0) {
-        elements.push(
-          <pre
-            key={elements.length}
-            className="bg-card/50 backdrop-blur-sm border border-border rounded-lg p-4 mb-6 overflow-x-auto"
-          >
-            <code className="text-sm text-foreground font-mono">{codeBlock.join("\n")}</code>
-          </pre>,
-        )
-        codeBlock = []
-        inCodeBlock = false
-        codeLanguage = ""
-      }
-    }
-
-    lines.forEach((line, idx) => {
-      // Code blocks
-      if (line.startsWith("```")) {
-        if (inCodeBlock) {
-          flushCodeBlock()
-        } else {
-          flushList()
-          inCodeBlock = true
-          codeLanguage = line.slice(3)
-        }
-        return
-      }
-
-      if (inCodeBlock) {
-        codeBlock.push(line)
-        return
-      }
-
-      // Headers
-      if (line.startsWith("# ")) {
-        flushList()
-        elements.push(
-          <h1 key={idx} className="text-4xl font-bold mb-6 mt-8">
-            {line.slice(2)}
-          </h1>,
-        )
-      } else if (line.startsWith("## ")) {
-        flushList()
-        elements.push(
-          <h2 key={idx} className="text-3xl font-bold mb-4 mt-8">
-            {line.slice(3)}
-          </h2>,
-        )
-      } else if (line.startsWith("### ")) {
-        flushList()
-        elements.push(
-          <h3 key={idx} className="text-2xl font-semibold mb-4 mt-6">
-            {line.slice(4)}
-          </h3>,
-        )
-      }
-      // Lists
-      else if (line.startsWith("- ")) {
-        const content = line.slice(2).replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-        currentList.push(content)
-      }
-      // Paragraphs
-      else if (line.trim() === "") {
-        flushList()
-      } else if (!line.startsWith("#") && line.trim() !== "") {
-        flushList()
-        const content = line.replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold">$1</strong>')
-        elements.push(
-          <p
-            key={idx}
-            className="text-muted-foreground mb-6 leading-relaxed"
-            dangerouslySetInnerHTML={{ __html: content }}
-          />,
-        )
-      }
-    })
-
-    flushList()
-    flushCodeBlock()
-
-    return elements
+    notFound()
   }
 
   return (
@@ -303,7 +76,10 @@ export default async function BlogPost({ params }: { params: { slug: string } })
                 </div>
               </div>
 
-              <div className="prose prose-invert max-w-none">{renderMarkdown(article.content)}</div>
+              <div
+                className="prose prose-invert max-w-none prose-headings:font-bold prose-h1:text-4xl prose-h1:mb-6 prose-h1:mt-8 prose-h2:text-3xl prose-h2:mb-4 prose-h2:mt-8 prose-h3:text-2xl prose-h3:mb-4 prose-h3:mt-6 prose-p:text-muted-foreground prose-p:mb-6 prose-p:leading-relaxed prose-ul:list-disc prose-ul:list-inside prose-ul:mb-6 prose-ul:text-muted-foreground prose-ul:space-y-2 prose-ol:list-decimal prose-ol:list-inside prose-ol:mb-6 prose-ol:text-muted-foreground prose-ol:space-y-2 prose-strong:font-semibold prose-strong:text-foreground prose-code:text-sm prose-code:font-mono prose-pre:bg-card/50 prose-pre:backdrop-blur-sm prose-pre:border prose-pre:border-border prose-pre:rounded-lg prose-pre:p-4 prose-pre:mb-6 prose-pre:overflow-x-auto"
+                dangerouslySetInnerHTML={{ __html: article.content }}
+              />
             </div>
           </Card>
 
